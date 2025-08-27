@@ -1,38 +1,40 @@
-name: Playit RDP Tunnel 
+name: Playit RDP Tunnel
 
 on:
   workflow_dispatch:
 
 jobs:
-  setup-rdp-tunnle:
+  setup-rdp-tunnel:
     runs-on: windows-latest
-      
     steps:
-    - name: Check out the repositary
-        uses: actions/checkout@v2
+      # Check out the repository (optional, only if you need to access repository files)
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-     -  name: Download and Install Playit
+      # Download the playit.gg agent
+      - name: Download Playit
         run: |
-         Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.16.2/playit-windows-x86_64-signed.exe" -OutFile "playit.exe"
-         Start-sleep -Seconds 5 ↑↑ Give some time for the download to comlete
+          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.16.2/playit-windows-x86_64-signed.exe" -OutFile "$env:USERPROFILE\playit.exe"
+          Start-Sleep -Seconds 10  # Increased wait time to ensure download completes
 
+      # Enable Remote Desktop settings
+      - name: Enable Remote Desktop
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+          # Set a secure password for the runneradmin user (avoid hardcoding in production)
+          $password = ConvertTo-SecureString "p@ssw0rd!" -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $password
 
-      # Default, optional.
-      - name: Enable TS
-        run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnetions" -Value 0
-      - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-      - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -value 1
-      - run: Set-LocalUser =Name "runneradmin" =Password (convertTO=SecureString =AsPlainText =p@ssw0rd! =Force)
-      
+      # Start playit.gg agent with the authentication key
       - name: Start Playit and Set Up RDP Tunnel
-        cnv:
+        env:
           PLAYIT_AUTH_KEY: ${{ secrets.PL }}
         run: |
-         Start=Process =FilePath "$env:USERPROFILE\playit.exe" -ArgumentList "--secret $env:PLAYIT_AUTH_KEY= -NoNewWindow - wait
-         Start=Process =FilePath "$env:USERPROFILE\playit.exe" -NoNewWindows
+          Start-Process -FilePath "$env:USERPROFILE\playit.exe" -ArgumentList "--secret $env:PLAYIT_AUTH_KEY" -NoNewWindow -Wait
 
-
-      # Prevenl workflow to stop
+      # Keep the runner alive (set to 6 hours to respect free tier limits)
       - name: Keep the GitHub Action Runner Alive
         run: |
-           Start-Sleep -Seconds 91800 # Adjust the duration based on your needs
+          Start-Sleep -Seconds 21600  # 6 hours
