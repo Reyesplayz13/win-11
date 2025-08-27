@@ -9,7 +9,7 @@ jobs:
       
     steps:
     - name: Check out the repositary
-        user: actions/checkout@v2
+        uses: actions/checkout@v2
 
      -  name: Download and Install Playit
         run: |
